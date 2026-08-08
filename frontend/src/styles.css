@@ -1,0 +1,229 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Dengue Centinela — sistema de diseño.
+ * Modo oscuro por defecto. El color solo comunica severidad.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-risk-low: var(--risk-low);
+  --color-risk-mid: var(--risk-mid);
+  --color-risk-high: var(--risk-high);
+  --color-risk-critical: var(--risk-critical);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: #0d1117;
+  --foreground: #e6edf3;
+  --card: #161b22;
+  --card-foreground: #e6edf3;
+  --popover: #161b22;
+  --popover-foreground: #e6edf3;
+  --primary: #2dd4bf;
+  --primary-foreground: #06251f;
+  --secondary: #1c2430;
+  --secondary-foreground: #e6edf3;
+  --muted: #161b22;
+  --muted-foreground: #9aa7b4;
+  --accent: #222c39;
+  --accent-foreground: #e6edf3;
+  --destructive: #f87171;
+  --destructive-foreground: #1a0b0b;
+  --border: #28313c;
+  --input: #28313c;
+  --ring: #2dd4bf;
+
+  /* Escala de riesgo: bajo -> alto */
+  --risk-low: #2dd4bf;
+  --risk-mid: #34d399;
+  --risk-high: #fbbf24;
+  --risk-critical: #f87171;
+
+  --map-base: #10151d;
+  --gradient-risk: linear-gradient(90deg, #2dd4bf, #34d399, #fbbf24, #f87171);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility risk-scale {
+  background-image: var(--gradient-risk);
+}
+
+@utility pulse-dot {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.9);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Mapa de riesgo (Leaflet + grilla H3)
+ * El color de cada celda siempre codifica el nivel de riesgo real.
+ * ------------------------------------------------------------------ */
+
+.leaflet-container {
+  background: transparent;
+  font: inherit;
+  outline: 0;
+  z-index: 0;
+}
+
+/* Oscurecemos la base satelital para que los hexágonos traslúcidos se lean. */
+.dengue-tiles {
+  filter: brightness(0.62) saturate(0.72) contrast(1.06);
+}
+
+/* Toggle de capas: el panel de hexágonos se apaga sin desmontar las geometrías. */
+.leaflet-dengue-hexes-pane,
+.leaflet-dengue-region-pane {
+  transition: opacity 0.25s ease;
+}
+
+.dengue-pane-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Cambio de escala por zoom: regional (res 4) <-> detalle urbano (res 8). */
+.dengue-pane-off {
+  display: none;
+}
+
+/* Navegación por teclado sobre los hexágonos. */
+.leaflet-interactive {
+  outline: 0;
+}
+
+.leaflet-interactive:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+/* Nombres de barrio (detalle) y de provincia (regional) sobre el mapa. */
+.leaflet-marker-icon.dengue-zone-label,
+.leaflet-marker-icon.dengue-province-label {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.dengue-zone-label > span,
+.dengue-province-label > span {
+  color: color-mix(in srgb, var(--foreground) 72%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 3px rgba(13, 17, 23, 0.95),
+    0 0 10px rgba(13, 17, 23, 0.85);
+}
+
+.dengue-province-label > span {
+  color: color-mix(in srgb, var(--foreground) 88%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+/* Punto de "mi ubicación". */
+.leaflet-marker-icon.dengue-user-dot {
+  border: 0;
+  background: none;
+}
+
+.dengue-user-core {
+  position: absolute;
+  inset: 5px;
+  border-radius: 9999px;
+  background: var(--risk-low);
+  box-shadow: 0 0 0 2px rgba(13, 17, 23, 0.9);
+}
+
+.dengue-user-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--risk-low) 35%, transparent);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Respaldo si las tiles satelitales no cargan: esquema de manzanas. */
+.dengue-map-fallback {
+  background-color: #0f141c;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(230, 237, 243, 0.07) 0 1px, transparent 1px 84px),
+    repeating-linear-gradient(90deg, rgba(230, 237, 243, 0.07) 0 1px, transparent 1px 84px),
+    repeating-linear-gradient(0deg, rgba(230, 237, 243, 0.035) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgba(230, 237, 243, 0.035) 0 1px, transparent 1px 28px);
+}
+
+.leaflet-container .leaflet-control-attribution {
+  padding: 2px 8px;
+  border-radius: 8px 0 0 0;
+  background: rgba(22, 27, 34, 0.85);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  backdrop-filter: blur(4px);
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--primary);
+}
