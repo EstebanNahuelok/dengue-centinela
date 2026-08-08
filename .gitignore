@@ -7,6 +7,10 @@ build/
 .DS_Store
 Thumbs.db
 
+# Claude Code: subagentes y config local, no subir al repo del equipo
+.claude/agents/*.md
+CLAUDE.md
+
 # Prisma
 backend/prisma/dev.db
 backend/prisma/migrations/**/migration.sql.bak
