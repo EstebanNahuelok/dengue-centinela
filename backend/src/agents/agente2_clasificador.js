@@ -93,10 +93,14 @@ function clasificarConHeuristica({ tipo, descripcion = '' }) {
 export async function clasificarReporte({ tipo, descripcion = '' }) {
   try {
     const respuesta = await conTimeout(
-      chatCompletion([
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: construirPrompt({ tipo, descripcion }) },
-      ]),
+      chatCompletion(
+        [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: construirPrompt({ tipo, descripcion }) },
+        ],
+        undefined,
+        { temperature: 0 }
+      ),
       TIMEOUT_MS
     );
 
