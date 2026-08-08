@@ -1,0 +1,21 @@
+# Plan B si Neon no está disponible (ej. sin wifi decente en el lugar del hackathon).
+# Por defecto usamos Neon (ver README) porque no requiere instalar nada en Windows.
+#
+# Para usar esto en cambio:
+#   docker compose up -d
+#   DATABASE_URL="postgresql://dengue:dengue@localhost:5432/dengue_centinela" en backend/.env
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dengue
+      POSTGRES_PASSWORD: dengue
+      POSTGRES_DB: dengue_centinela
+    ports:
+      - "5432:5432"
+    volumes:
+      - dengue_pg_data:/var/lib/postgresql/data
+
+volumes:
+  dengue_pg_data:

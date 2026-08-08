@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TipoReporte {
+  sintoma
+  criadero
+}
+
+enum ClasificacionIA {
+  sospecha_alta
+  sospecha_media
+  no_relevante
+}
+
+model Reporte {
+  id              String           @id @default(cuid())
+  telefonoHash    String           @map("telefono_hash")
+  tipo            TipoReporte
+  barrio          String
+  lat             Float?
+  lng             Float?
+  descripcion     String
+  timestamp       DateTime         @default(now())
+  clasificacionIa ClasificacionIA? @map("clasificacion_ia")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  @@index([barrio])
+  @@index([timestamp])
+  @@map("reportes")
+}
+
+// factorClima se guarda como mm de lluvia acumulada (numero), no como
+// categoria de texto. El endpoint GET /status lo traduce a "bajo"/"medio"/"alto"
+// (ver services/openMeteo.js#categoriaClima) para matchear el formato acordado
+// en la spec del frontend.
+model ZonaRiesgo {
+  id                  String   @id @default(cuid())
+  barrio              String   @unique
+  lat                 Float
+  lng                 Float
+  scoreActual         Int      @default(0) @map("score_actual")
+  cantidadReportes7d  Int      @default(0) @map("cantidad_reportes_7d")
+  factorClima         Float    @default(0) @map("factor_clima")
+  ultimaActualizacion DateTime @default(now()) @updatedAt @map("ultima_actualizacion")
+
+  @@map("zonas_riesgo")
+}
