@@ -115,20 +115,36 @@ inyecta la plataforma sola.
 > Para `migrate deploy` conviene la connection string **directa** de Neon, no la
 > pooled: PgBouncer puede dar problemas aplicando migraciones.
 
-### Frontend → Cloudflare Workers
+### Frontend → Vercel
 
-Viene del scaffold: `vite build` usa nitro con target Cloudflare y genera
-`.output/server/wrangler.json` ya listo (con `nodejs_compat` activado).
+El repo importa como proyecto de Vercel con el preset **TanStack Start**
+detectado automáticamente (no hace falta tocar Build/Output/Install Command,
+dejarlos en default).
 
-```bash
-cd frontend
-VITE_API_URL=https://<backend-desplegado> VITE_USE_MOCK=false pnpm build
-npx nitro deploy --prebuilt
+| Config | Valor |
+|---|---|
+| Root directory | `frontend` |
+| Framework Preset | TanStack Start (autodetectado) |
+
+Nitro (el motor de build de TanStack Start) detecta que corre en Vercel por
+las variables de entorno propias de esa plataforma y genera el output
+correcto solo — no hace falta pasarle un preset a mano ni tocar
+`vite.config.ts`.
+
+Variables de entorno a cargar en el proyecto de Vercel (Production and Preview):
+
+```
+VITE_API_URL=https://<backend-desplegado>
+VITE_USE_MOCK=false
+GROQ_API_KEY=<tu-key-de-groq>
 ```
 
-`GROQ_API_KEY` va como **secret del Worker**, sin prefijo `VITE_` — es una server
-function de TanStack Start, la key nunca sale al navegador. Gracias a
-`nodejs_compat`, `process.env` funciona dentro del Worker.
+`GROQ_API_KEY` va **sin** prefijo `VITE_` a propósito: es una server function
+de TanStack Start, corre en el servidor y la key nunca sale al navegador.
+
+> Ojo: `VITE_*` son variables de *build*, no de runtime — si las cambiás en
+> el panel de Vercel después de un deploy, hay que redeployar para que el
+> build nuevo las hornee en el bundle.
 
 ### Después del deploy
 

@@ -73,10 +73,22 @@ function descripcionParaSintomas({ fiebre, sintomasDetectados, mensajeOriginal }
   );
 }
 
+function dispararRecalculoSiAplica(barrio, clasificacion) {
+  if (clasificacion === 'no_relevante') return;
+  // Efecto "en vivo" en el mapa: recalculamos la zona en segundo plano, sin
+  // demorar la respuesta a Twilio (si Open-Meteo esta lento, no bloquea nada).
+  const barrioInfo = BARRIOS.find((b) => b.nombre === barrio);
+  if (barrioInfo) {
+    recalcularBarrio(barrioInfo).catch((err) =>
+      console.error(`[Agente3] recalculo automatico fallo para ${barrio}:`, err.message)
+    );
+  }
+}
+
 async function guardarReporte({ From, tipo, barrio, descripcion, clasificacion }) {
   const coords = coordsDeBarrio(barrio);
 
-  await prisma.reporte.create({
+  const reporte = await prisma.reporte.create({
     data: {
       telefonoHash: hashPhone(From ?? 'desconocido'),
       tipo,
@@ -88,35 +100,51 @@ async function guardarReporte({ From, tipo, barrio, descripcion, clasificacion }
     },
   });
 
-  if (clasificacion === 'no_relevante') return;
-
-  // Efecto "en vivo" en el mapa: recalculamos la zona en segundo plano, sin
-  // demorar la respuesta a Twilio (si Open-Meteo esta lento, no bloquea nada).
-  const barrioInfo = BARRIOS.find((b) => b.nombre === barrio);
-  if (barrioInfo) {
-    recalcularBarrio(barrioInfo).catch((err) =>
-      console.error(`[Agente3] recalculo automatico fallo para ${barrio}:`, err.message)
-    );
-  }
+  dispararRecalculoSiAplica(barrio, clasificacion);
+  return reporte;
 }
 
 async function manejarAlarma(res, { From, estado, texto }) {
   clearPendiente(From);
 
   const descripcion = acumular(estado, texto);
-  const barrio = estado.barrio ?? (await detectarBarrio(texto)) ?? 'Sin especificar';
+  const barrioDetectado = estado.barrio ?? (await detectarBarrio(texto));
 
   // Los signos de alarma fuerzan sospecha_alta directo, sin pasar por Groq:
   // es la parte de seguridad del flujo, tiene que ser inmediata y confiable.
-  await guardarReporte({
+  // El reporte se guarda YA, aunque no sepamos el barrio todavia — la
+  // urgencia no espera. Si falta el barrio, lo repreguntamos DESPUES del
+  // mensaje de alarma y completamos el mismo reporte (si no, queda con
+  // "Sin especificar" y el Agente 3 nunca lo suma a ningun barrio real).
+  const reporte = await guardarReporte({
     From,
     tipo: estado.tipo ?? 'sintoma',
-    barrio,
+    barrio: barrioDetectado ?? 'Sin especificar',
     descripcion,
     clasificacion: 'sospecha_alta',
   });
 
+  if (!barrioDetectado) {
+    setPendiente(From, { paso: 'alarma_barrio', reporteId: reporte.id });
+  }
+
   return responder(res, MENSAJE_ALARMA);
+}
+
+async function manejarBarrioAlarma(res, { From, estado, texto }) {
+  const barrio = await detectarBarrio(texto);
+  if (!barrio) return responder(res, MENSAJE_BARRIO_NO_RECONOCIDO);
+
+  clearPendiente(From);
+  const coords = coordsDeBarrio(barrio);
+
+  await prisma.reporte.update({
+    where: { id: estado.reporteId },
+    data: { barrio, lat: coords?.lat ?? null, lng: coords?.lng ?? null },
+  });
+  dispararRecalculoSiAplica(barrio, 'sospecha_alta');
+
+  return responder(res, `Gracias, completamos tu reporte con la zona ${barrio}.`);
 }
 
 function manejarMenuNuevo(res, { From }) {
@@ -244,6 +272,8 @@ router.post('/', async (req, res, next) => {
         return manejarDescripcionCriadero(res, { From, estado, texto });
       case 'criadero_barrio':
         return manejarBarrioCriadero(res, { From, estado, texto });
+      case 'alarma_barrio':
+        return manejarBarrioAlarma(res, { From, estado, texto });
       default:
         return manejarMenuNuevo(res, { From });
     }

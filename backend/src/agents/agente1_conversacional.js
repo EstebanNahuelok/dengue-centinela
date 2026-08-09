@@ -48,9 +48,15 @@ const PALABRAS_ENCIAS_NARIZ = ['encia', 'nariz', 'nasal'];
 const PALABRAS_DOLOR = ['dolor'];
 const PALABRAS_ZONA_ABDOMINAL = ['estomago', 'abdominal', 'panza', 'abdomen'];
 const PALABRAS_INTENSIDAD = ['fuerte', 'intenso', 'continuo', 'insoportable'];
+// OJO: "mucho sueno"/"tengo sueno" solos NO van aca — es una frase
+// comunisima en charla casual ("tengo sueño") y disparaba falsos positivos
+// (probado con un caso real). Solo cuentan las formas mas especificas de
+// letargo/somnolencia real, que es el signo de alarma clinico de verdad
+// (no simplemente estar cansado o con ganas de dormir).
 const PALABRAS_CONCIENCIA = [
-  'mareo', 'desmayo', 'desmaye', 'somnolencia', 'mucho sueno', 'muy dormido', 'muy dormida',
+  'mareo', 'desmayo', 'desmaye', 'somnolencia', 'letargo', 'muy dormido', 'muy dormida',
   'no puedo mantenerme despierto', 'no puedo mantenerme despierta',
+  'no se despierta', 'no reacciona', 'no reacciona bien',
 ];
 
 export function detectarSignoAlarma(textoOriginal) {
