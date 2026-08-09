@@ -1,10 +1,14 @@
 node_modules/
 dist/
 build/
+# Secretos. El patron .env.* cubre CUALQUIER variante (.env.production,
+# .env.neon, etc): mas seguro listar la excepcion que enumerar los casos.
+# El .env.example es lo unico que sube, y va con placeholders vacios.
 .env
-.env.local
-# Ojo: este se llama SIN punto y habia quedado rastreado por error, con la
-# GROQ_API_KEY adentro. Los patrones de arriba no lo cubrian.
+.env.*
+!.env.example
+# Ojo: este se llama SIN punto y habia quedado rastreado por error. Los
+# patrones de arriba no lo cubrian.
 env.local
 *.env.local
 *.log
