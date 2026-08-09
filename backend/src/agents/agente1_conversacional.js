@@ -15,9 +15,16 @@ export const CATEGORIAS_SINTOMAS = [
   'sarpullido o manchas rojas en la piel',
 ];
 
+// Groq a veces envuelve el JSON en ```json ... ``` (markdown) o agrega texto
+// alrededor a pesar de que le pedimos "SOLO un JSON". Un JSON.parse directo
+// fallaba con eso y todo caia silenciosamente al heuristico de respaldo, mas
+// debil. Extraemos el primer bloque {...} de la respuesta en vez de asumir
+// que la respuesta entera es JSON puro.
 async function preguntarGroqJSON(prompt) {
   const respuesta = await chatCompletion([{ role: 'user', content: prompt }]);
-  return JSON.parse(respuesta.trim());
+  const match = respuesta.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`Groq no devolvio JSON reconocible: ${respuesta.slice(0, 120)}`);
+  return JSON.parse(match[0]);
 }
 
 // --- Signos de alarma -------------------------------------------------
@@ -78,6 +85,11 @@ export function parseOpcionMenu(texto) {
   const t = texto.toLowerCase().trim();
   if (t.includes('1') || t.includes('sintoma') || t.includes('síntoma')) return 'sintoma';
   if (t.includes('2') || t.includes('criadero')) return 'criadero';
+  // "no" solo no entra aca a proposito: es muy ambiguo ("no entiendo", "no
+  // se"). Pedimos frases mas explicitas para salir sin reportar nada.
+  if (t.includes('3') || t.includes('nada') || t.includes('salir') || t.includes('cancelar') || t.includes('ninguna')) {
+    return 'salir';
+  }
   return null;
 }
 

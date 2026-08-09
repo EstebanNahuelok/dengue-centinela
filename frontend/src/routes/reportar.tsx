@@ -116,10 +116,18 @@ function ReportarPage() {
     setOnline(navigator.onLine);
     refrescarPendientes();
 
-    // Fallback obligatorio: Background Sync no existe en Safari/iOS, así que
-    // sin este listener esos usuarios se quedarían con el reporte trabado.
+    // Fallback SOLO si Background Sync no existe (Safari/iOS): si el
+    // navegador sí lo soporta, el service worker ya vacía la cola solo, y
+    // sincronizar acá TAMBIÉN mandaba cada reporte pendiente dos veces (los
+    // dos leen la cola casi al mismo tiempo, antes de que ninguno borre nada).
+    const soportaBackgroundSync = "serviceWorker" in navigator && "SyncManager" in window;
+
     const alVolverLaRed = () => {
       setOnline(true);
+      if (soportaBackgroundSync) {
+        refrescarPendientes();
+        return;
+      }
       sincronizarPendientes()
         .then(({ enviados }) => {
           if (enviados > 0) {

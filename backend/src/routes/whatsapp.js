@@ -20,7 +20,10 @@ const router = Router();
 const MENU =
   'Hola! Soy el asistente de Dengue Centinela. ¿Qué querés hacer?\n' +
   '1️⃣ Reportar un posible caso de dengue (síntomas)\n' +
-  '2️⃣ Reportar un criadero (agua estancada, etc.)';
+  '2️⃣ Reportar un criadero (agua estancada, etc.)\n' +
+  '3️⃣ Nada por ahora';
+
+const MENSAJE_SALIDA = 'Listo, no hago nada. Escribime cuando quieras reportar algo. 👋';
 
 const PREGUNTA_FIEBRE = '¿Tenés fiebre alta (38°C o más)?';
 
@@ -39,6 +42,26 @@ const MENSAJE_ALARMA =
 const MENSAJE_NO_RELEVANTE_SINTOMA =
   'Gracias por reportar. Tus síntomas no coinciden con el patrón típico de dengue (fiebre alta + síntomas ' +
   'asociados). Si empeorás o te preocupa, consultá a un médico igual.';
+
+// Mismo criterio de seguridad que frontend/src/lib/asistente.ts: nunca
+// diagnosticar ni recomendar medicacion, siempre derivar a un centro de
+// salud real. El texto varia segun gravedad, no es un "gracias" generico.
+function mensajeFinalSintoma(clasificacion, barrio) {
+  if (clasificacion === 'sospecha_alta') {
+    return (
+      `Gracias, registramos tu reporte en la zona ${barrio}. Tus síntomas coinciden con el patrón de ` +
+      'dengue: te recomendamos consultar cuanto antes en tu centro de salud más cercano. No tomes ' +
+      'aspirina ni ibuprofeno sin indicación médica (pueden agravar un cuadro de dengue).'
+    );
+  }
+  if (clasificacion === 'sospecha_media') {
+    return (
+      `Gracias, registramos tu reporte en la zona ${barrio}. Si los síntomas continúan o empeoran, ` +
+      'consultá en tu centro de salud más cercano.'
+    );
+  }
+  return MENSAJE_NO_RELEVANTE_SINTOMA;
+}
 
 const MENSAJE_NO_RELEVANTE_CRIADERO =
   'Gracias por el aviso. Para que cuente como foco de dengue necesitamos que haya agua estancada real ' +
@@ -165,6 +188,11 @@ function manejarEsperandoOpcion(res, { From, texto }) {
     return responder(res, PREGUNTA_DESCRIPCION_CRIADERO);
   }
 
+  if (opcion === 'salir') {
+    clearPendiente(From);
+    return responder(res, MENSAJE_SALIDA);
+  }
+
   return responder(res, `No entendí esa opción.\n\n${MENU}`);
 }
 
@@ -205,9 +233,7 @@ async function manejarBarrioSintoma(res, { From, estado, texto }) {
   const clasificacion = await clasificarReporte({ tipo: 'sintoma', descripcion });
   await guardarReporte({ From, tipo: 'sintoma', barrio, descripcion, clasificacion });
 
-  const mensaje =
-    clasificacion === 'no_relevante' ? MENSAJE_NO_RELEVANTE_SINTOMA : `Gracias, registramos tu reporte en la zona ${barrio}.`;
-  return responder(res, mensaje);
+  return responder(res, mensajeFinalSintoma(clasificacion, barrio));
 }
 
 async function manejarDescripcionCriadero(res, { From, estado, texto }) {
