@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CentinelaLockup } from "../components/brand/Logo";
 import { AsistenteBar } from "../components/AsistenteBar";
+import { WhatsappFab } from "../components/WhatsappFab";
 
 function NotFoundComponent() {
   return (
@@ -225,6 +226,8 @@ function RootComponent() {
         )}
         {/* Barra del asistente: flota sobre todas las pantallas. */}
         <AsistenteBar />
+        {/* Acceso directo a WhatsApp: esquina opuesta al asistente, siempre visible. */}
+        <WhatsappFab />
       </div>
     </QueryClientProvider>
   );
