@@ -699,7 +699,7 @@ export function RiskMap() {
   const sheetMode = bounds.w > 0 && bounds.w < SHEET_BREAKPOINT;
 
   return (
-    <div className="relative flex min-h-[26rem] w-full flex-1 flex-col overflow-hidden bg-background md:flex-row">
+    <div className="relative flex min-h-[26rem] w-full flex-1 flex-col overflow-hidden bg-background isolate md:flex-row">
       <ProvinceRail summaries={summaries} active={activeRail} onSelect={goTo} />
 
       {/* Área del mapa: ocupa todo el ancho restante. */}
