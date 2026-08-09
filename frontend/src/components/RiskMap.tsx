@@ -752,22 +752,19 @@ export function RiskMap() {
         </div>
 
         <div className="absolute right-2 top-2 z-[900] flex max-w-[calc(100%-4rem)] flex-col items-end gap-1.5 sm:right-3 sm:top-3 sm:max-w-none sm:gap-2">
-          {/* Momento clave del pitch: dispara POST /recalcular en vivo. */}
-          <button
-            type="button"
-            onClick={() => void loadStatus("recalc")}
-            disabled={refreshing}
-            aria-busy={refreshing}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-2.5 py-1.5 text-[11px] font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 sm:h-3.5 sm:w-3.5 ${refreshing ? "animate-spin" : ""}`}
-            />
-            {/* En pantallas chicas queda solo el ícono, para no comerse el mapa. */}
-            <span className="hidden sm:inline">
-              {refreshing ? "Recalculando…" : "Actualizar mapa"}
-            </span>
-          </button>
+          {/* Escala vigente segun el zoom. Va primero: orienta antes que nada
+              lo que se esta mirando (region vs. detalle de barrio). Texto en
+              criollo, sin jerga tecnica (H3/resolucion es implementacion
+              interna). Se oculta en celular: es informacion secundaria. */}
+          <p className="pointer-events-none hidden rounded-full border border-border bg-card/85 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur sm:block">
+            {detailMode ? "Detalle urbano" : "Vista regional NOA"}
+          </p>
+
+          {/* Etiqueta para que se entienda para que sirven los botones de
+              abajo (+7d/+14d): sin esto quedaban sueltos, sin contexto. */}
+          <p className="pointer-events-none rounded-full border border-border bg-card/85 px-2.5 py-1 text-[11px] text-muted-foreground backdrop-blur sm:px-3">
+            Proyectar riesgo a futuro
+          </p>
 
           {/* Predicción: proyecta el riesgo con el pronóstico de Open-Meteo.
               Repinta los mismos hexágonos, no cambia la geometría del mapa. */}
@@ -839,12 +836,24 @@ export function RiskMap() {
             </p>
           )}
 
-          {/* Escala vigente segun el zoom. Texto en criollo, sin jerga tecnica
-              (H3/resolucion es implementacion interna, no le importa a quien
-              mira la demo). Se oculta en celular: es informacion secundaria. */}
-          <p className="pointer-events-none hidden rounded-full border border-border bg-card/85 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur sm:block">
-            {detailMode ? "Detalle urbano" : "Vista regional NOA"}
-          </p>
+          {/* Momento clave del pitch: dispara POST /recalcular en vivo. Va
+              junto al indicador de "datos en vivo" de abajo, agrupado con
+              todo lo que es "estado real" en vez de con la proyección. */}
+          <button
+            type="button"
+            onClick={() => void loadStatus("recalc")}
+            disabled={refreshing}
+            aria-busy={refreshing}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-2.5 py-1.5 text-[11px] font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 sm:h-3.5 sm:w-3.5 ${refreshing ? "animate-spin" : ""}`}
+            />
+            {/* En pantallas chicas queda solo el ícono, para no comerse el mapa. */}
+            <span className="hidden sm:inline">
+              {refreshing ? "Recalculando…" : "Actualizar mapa"}
+            </span>
+          </button>
 
           {/* Que quede explícito si los números son reales o simulados, sin
               nombrar "backend" — esto lo ve el jurado, no un programador. */}
