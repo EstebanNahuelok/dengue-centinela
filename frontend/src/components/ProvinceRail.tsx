@@ -20,7 +20,7 @@ export function ProvinceRail({
   return (
     <nav
       aria-label="Provincias del NOA"
-      className="flex shrink-0 gap-2 overflow-x-auto border-b border-border bg-card/70 p-2 backdrop-blur md:w-60 md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-b-0 md:border-r md:p-3"
+      className="flex shrink-0 gap-2 overflow-x-auto border-b border-border bg-card/70 p-2 backdrop-blur scrollbar-none md:w-60 md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-b-0 md:border-r md:p-3"
     >
       <p className="hidden px-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:block">
         Región NOA

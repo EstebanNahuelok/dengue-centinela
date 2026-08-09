@@ -148,7 +148,7 @@ function RootComponent() {
       {/* dvh en lugar de vh: en los navegadores móviles la barra de direcciones
           se come parte de 100vh y el mapa terminaba cortado abajo. */}
       <div className="flex min-h-dvh flex-col bg-background">
-        <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
+        <header className="sticky top-0 z-[950] border-b border-border bg-background/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3">
             <Link to="/" className="min-w-0 shrink-0">
               <CentinelaLockup showLocation />
