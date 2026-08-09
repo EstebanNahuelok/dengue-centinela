@@ -13,14 +13,19 @@ interface State {
   hexes: Hex[];
   reports: Report[];
   alerts: Alert[];
-  intervened: string[];
+  /**
+   * Zonas marcadas como intervenidas por una cuadrilla. La clave es
+   * "<provincia>:<zona>" porque el panel cubre las 6 provincias del NOA y los
+   * nombres de barrio se repiten entre ellas (casi todas tienen un "Centro").
+   */
+  intervenedZones: string[];
 }
 
 let state: State = {
   hexes: buildHexes(),
   reports: [],
   alerts: INITIAL_ALERTS,
-  intervened: [],
+  intervenedZones: [],
 };
 
 const listeners = new Set<() => void>();
@@ -89,20 +94,27 @@ export function addReport(input: {
   return { report, hex: target };
 }
 
-/** En producción: POST /zones/:id/interventions */
-export function markIntervened(zone: ZoneName) {
-  const intervened = state.intervened.includes(zone)
-    ? state.intervened
-    : [...state.intervened, zone];
-  const hexes = state.hexes.map((h) =>
-    h.zone === zone ? { ...h, score: Math.max(8, Math.round(h.score * 0.55)) } : h,
-  );
-  state = { ...state, intervened, hexes };
+/**
+ * Marca o desmarca una zona como intervenida. En producción:
+ *   POST   /zones/:id/interventions
+ *   DELETE /zones/:id/interventions
+ *
+ * Es una marca operativa (cuadrilla despachada), no toca el score: el riesgo
+ * lo recalcula el Agente 3 con reportes y lluvia reales, no el panel.
+ */
+export function toggleZoneIntervened(key: string) {
+  const intervenedZones = state.intervenedZones.includes(key)
+    ? state.intervenedZones.filter((z) => z !== key)
+    : [...state.intervenedZones, key];
+  state = { ...state, intervenedZones };
   emit();
 }
 
 export function zoneAggregates(hexes: Hex[]) {
-  const map = new Map<ZoneName, { zone: ZoneName; score: number; reports: number; hexes: number }>();
+  const map = new Map<
+    ZoneName,
+    { zone: ZoneName; score: number; reports: number; hexes: number }
+  >();
   for (const h of hexes) {
     const cur = map.get(h.zone) ?? { zone: h.zone, score: 0, reports: 0, hexes: 0 };
     cur.score = Math.max(cur.score, h.score);
