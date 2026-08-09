@@ -839,13 +839,15 @@ export function RiskMap() {
             </p>
           )}
 
-          {/* Escala vigente: la grilla H3 cambia de resolución con el zoom.
-              Se oculta en celular: es información secundaria. */}
+          {/* Escala vigente segun el zoom. Texto en criollo, sin jerga tecnica
+              (H3/resolucion es implementacion interna, no le importa a quien
+              mira la demo). Se oculta en celular: es informacion secundaria. */}
           <p className="pointer-events-none hidden rounded-full border border-border bg-card/85 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur sm:block">
-            {detailMode ? "Detalle urbano · H3 res 8" : "Vista regional NOA · H3 res 4"}
+            {detailMode ? "Detalle urbano" : "Vista regional NOA"}
           </p>
 
-          {/* Que quede explícito si los números son reales o simulados. */}
+          {/* Que quede explícito si los números son reales o simulados, sin
+              nombrar "backend" — esto lo ve el jurado, no un programador. */}
           {status && (
             <p className="pointer-events-none flex items-center gap-1.5 rounded-full border border-border bg-card/85 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
               <span
@@ -855,7 +857,7 @@ export function RiskMap() {
               />
               {/* En celular solo la hora: el texto completo no entra. */}
               <span className="hidden sm:inline">
-                {liveData ? "Backend en vivo" : "Datos simulados"} ·{" "}
+                {liveData ? "Datos en vivo" : "Datos simulados"} ·{" "}
               </span>
               {formatUpdatedAt(status.ultima_actualizacion)}
             </p>

@@ -472,9 +472,11 @@ function ReportarPage() {
             {needsSymptoms && symptoms.length > 0 && <Row k="Síntomas" v={symptoms.join(", ")} />}
             {needsPhoto && <Row k="Foto" v={photo ? "Adjunta" : "Sin foto"} />}
           </dl>
-          <p className="rounded-xl border border-risk-high/40 bg-risk-high/10 p-3 text-xs text-risk-high">
-            Esto no es un diagnóstico médico. Si tenés síntomas, consultá al sistema de salud.
-          </p>
+          {needsSymptoms && (
+            <p className="rounded-xl border border-risk-high/40 bg-risk-high/10 p-3 text-xs text-risk-high">
+              Esto no es un diagnóstico médico. Si tenés síntomas, consultá al sistema de salud.
+            </p>
+          )}
           <NavButtons
             onBack={() => setStep(3)}
             onNext={enviar}
