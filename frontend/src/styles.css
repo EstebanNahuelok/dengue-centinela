@@ -205,6 +205,55 @@
   animation: pulse-ring 2s ease-out infinite;
 }
 
+/* Hospitales y centros de salud del NOA (capa que se puede apagar).
+   Rojo saturado propio, distinto del coral de --risk-critical, para que no se
+   confunda un punto de atención con una celda de riesgo alto. */
+.leaflet-marker-icon.dengue-hospital-dot {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+}
+
+.dengue-hospital-dot > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: #dc2626;
+  color: #fff;
+  box-shadow:
+    0 0 0 1.5px rgba(13, 17, 23, 0.9),
+    0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+.dengue-hospital-dot svg {
+  width: 72%;
+  height: 72%;
+}
+
+/* Los hospitales (más grandes) llevan un halo extra para diferenciarse
+   de los centros de salud sin depender solo del tamaño. */
+.dengue-hospital-dot--grande > span {
+  box-shadow:
+    0 0 0 2px rgba(13, 17, 23, 0.92),
+    0 0 0 4px rgba(220, 38, 38, 0.28),
+    0 1px 5px rgba(0, 0, 0, 0.55);
+}
+
+.leaflet-marker-icon.dengue-hospital-dot:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+/* La barra del asistente flota abajo a la derecha y tapaba la atribucion de
+   OpenStreetMap / Esri, que es obligatoria por licencia: le dejamos aire.
+   4.25rem cubre tanto el boton flotante de celular como la barra de desktop. */
+.leaflet-container .leaflet-bottom.leaflet-right {
+  margin-bottom: 4.25rem;
+}
+
 /* Respaldo si las tiles satelitales no cargan: esquema de manzanas. */
 .dengue-map-fallback {
   background-color: #0f141c;

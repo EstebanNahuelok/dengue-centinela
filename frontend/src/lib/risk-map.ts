@@ -1,5 +1,13 @@
-import { cellToBoundary, cellToLatLng, gridDisk, gridDistance, latLngToCell, polygonToCells } from "h3-js";
+import {
+  cellToBoundary,
+  cellToLatLng,
+  gridDisk,
+  gridDistance,
+  latLngToCell,
+  polygonToCells,
+} from "h3-js";
 
+import type { StatusZona } from "./api";
 import { riskLevel, type RiskLevel } from "./mock-data";
 
 /**
@@ -312,7 +320,9 @@ function ringDistance(from: string, to: string) {
 function cellFacts(h3: string, score: number, level: RiskLevel, weight: number) {
   const reports = Math.max(
     0,
-    Math.round((score / 8 + Math.floor(rand(h3, 53) * 3) - 1 + (level === "alto" ? 4 : 0)) * weight),
+    Math.round(
+      (score / 8 + Math.floor(rand(h3, 53) * 3) - 1 + (level === "alto" ? 4 : 0)) * weight,
+    ),
   );
   // Cuanto más alto el riesgo, más reciente el último reporte.
   const window = level === "alto" ? 9 : level === "medio" ? 26 : 96;
@@ -450,4 +460,107 @@ export function getRiskMapData(): RiskMapData {
     cache = { region: buildRegionCells(), detail, summaries: buildSummaries(detail) };
   }
   return cache;
+}
+
+/* ------------------------------------------------------------------ *
+ * Datos reales del backend (GET /status)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Caída del score por anillo H3 al alejarse del centroide del barrio.
+ * Mismo orden que el decay de los focos simulados (18-20), así el degradé
+ * mantiene el lenguaje visual del mapa. Con celdas de 0,86 km, un barrio
+ * con score 90 deja de influir a ~5 anillos (4,3 km).
+ */
+const BARRIO_DECAY = 18;
+
+/** Piso urbano para celdas sin ningún barrio cerca. */
+const URBAN_FLOOR = 4;
+
+interface BarrioAnchor extends StatusZona {
+  /** celda H3 res 8 donde cae el centroide del barrio */
+  h3: string;
+  center: LatLng;
+}
+
+function summarizeProvince(province: Province, cells: RiskCell[]): ProvinceSummary {
+  const score = cells.reduce((max, c) => Math.max(max, c.score), 0);
+  return {
+    province,
+    score,
+    level: riskLevel(score),
+    reports: cells.reduce((sum, c) => sum + c.reports, 0),
+    highCells: cells.filter((c) => c.level === "alto").length,
+  };
+}
+
+/**
+ * Pinta la grilla urbana de Salta con los datos reales de GET /status.
+ *
+ * Cada barrio actúa como foco: su score decae por anillo H3, igual que los
+ * brotes simulados, de modo que 10 puntos se leen como mancha de calor y no
+ * como 10 hexágonos aislados. Cada celda se atribuye a su barrio más cercano,
+ * y de ahí toma reportes y factor climático.
+ *
+ * Las otras 5 provincias del NOA y la vista regional (res 4) siguen simuladas:
+ * el backend sólo cubre Salta capital. Devuelve objetos nuevos para no
+ * contaminar el cache de getRiskMapData().
+ */
+export function applyStatusToRiskMap(base: RiskMapData, zonas: StatusZona[]): RiskMapData {
+  if (zonas.length === 0) return base;
+
+  const anchors: BarrioAnchor[] = zonas.map((zona) => ({
+    ...zona,
+    h3: latLngToCell(zona.lat, zona.lng, H3_DETAIL_RES),
+    center: [zona.lat, zona.lng] as LatLng,
+  }));
+
+  const detail = base.detail.map<RiskCell>((cell) => {
+    if (cell.province !== "salta") return cell;
+
+    let score = URBAN_FLOOR;
+    let nearest: BarrioAnchor | null = null;
+    let nearestKm = Number.POSITIVE_INFINITY;
+
+    for (const anchor of anchors) {
+      const rings = ringDistance(cell.h3, anchor.h3);
+      if (Number.isFinite(rings)) {
+        score = Math.max(score, anchor.score - rings * BARRIO_DECAY);
+      }
+      const km = distanceKm(cell.center, anchor.center);
+      if (km < nearestKm) {
+        nearestKm = km;
+        nearest = anchor;
+      }
+    }
+
+    score = clamp(Math.round(score), URBAN_FLOOR, 100);
+    const level = riskLevel(score);
+
+    return {
+      ...cell,
+      score,
+      level,
+      zone: nearest?.barrio ?? cell.zone,
+      // /status informa los reportes por barrio, no por celda.
+      reports: nearest?.reportes_7d ?? 0,
+      // /status no trae fecha del último reporte: se oculta en lugar de inventarla.
+      lastReportAt: "",
+      recentRain: nearest !== null && nearest.factor_clima !== "bajo",
+      rainHoursAgo: nearest?.factor_clima === "alto" ? 3 : 14,
+    };
+  });
+
+  const summaries = base.summaries
+    .map((summary) =>
+      summary.province.id === "salta"
+        ? summarizeProvince(
+            summary.province,
+            detail.filter((cell) => cell.province === "salta"),
+          )
+        : summary,
+    )
+    .sort((a, b) => b.score - a.score);
+
+  return { region: base.region, detail, summaries };
 }

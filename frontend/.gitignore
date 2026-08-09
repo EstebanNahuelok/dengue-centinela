@@ -16,6 +16,12 @@ dist-ssr
 .nitro
 *.local
 
+# Secretos: .env tiene la DATABASE_URL de Neon y la GROQ_API_KEY.
+# "*.local" cubre .env.local pero NO cubria .env.
+.env
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

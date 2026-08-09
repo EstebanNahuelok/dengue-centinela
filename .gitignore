@@ -3,6 +3,10 @@ dist/
 build/
 .env
 .env.local
+# Ojo: este se llama SIN punto y habia quedado rastreado por error, con la
+# GROQ_API_KEY adentro. Los patrones de arriba no lo cubrian.
+env.local
+*.env.local
 *.log
 .DS_Store
 Thumbs.db
