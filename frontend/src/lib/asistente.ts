@@ -42,11 +42,73 @@ Podés ayudar con:
 - Explicar cómo reportar un caso o un criadero desde la app.
 
 Reglas que tenés que cumplir siempre:
-- Contestá en español rioplatense, claro y breve: 2 a 4 oraciones. Usá lista corta solo si te piden pasos.
+- Contestá siempre con voseo rioplatense (vos, tenés, podés, decime), NUNCA con tuteo (tú, tienes, puedes). Claro y breve: 2 a 4 oraciones. Usá lista corta solo si te piden pasos.
 - NO diagnostiques ni recomiendes medicación. Si la persona describe síntomas (fiebre, dolor de cabeza, dolor detrás de los ojos, dolor muscular o de articulaciones, manchas en la piel), decile que consulte al centro de salud más cercano o llame al 107, y aclarale que no tome aspirina ni ibuprofeno sin indicación médica.
 - Si te preguntan por un barrio puntual, usá únicamente los datos del contexto. Si ese barrio no aparece, decí que no tenés datos de esa zona.
 - No inventes números ni nombres de barrios. Si el dato no está en el contexto, no lo afirmes.
 - Si la pregunta no tiene relación con dengue, salud pública o esta app, decilo en una oración y ofrecé ayudar con dengue.`;
+
+// --- Signos de alarma -----------------------------------------------------
+// Mismo criterio (por raíz de palabra, no frase exacta) que usa el backend
+// en agente1_conversacional.js para el flujo de WhatsApp: preferimos que
+// dispare de más (falso positivo) a que se le escape un caso real. Portado
+// acá de forma independiente -no importa nada de backend/- para que este
+// chat corte con el mismo mensaje de urgencia en vez de pasar por Groq
+// como si fuera una pregunta más.
+function normalizarTexto(texto: string): string {
+  return texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function contieneAlguna(texto: string, palabras: string[]): boolean {
+  return palabras.some((p) => texto.includes(p));
+}
+
+const RAICES_VOMITO = ["vomit"];
+const RAICES_SANGRE = ["sangr"];
+const PALABRAS_FRECUENCIA = [
+  "frecuente",
+  "seguido",
+  "mucho",
+  "no para",
+  "todo el tiempo",
+  "sin parar",
+];
+const PALABRAS_ENCIAS_NARIZ = ["encia", "nariz", "nasal"];
+const PALABRAS_DOLOR = ["dolor"];
+const PALABRAS_ZONA_ABDOMINAL = ["estomago", "abdominal", "panza", "abdomen"];
+const PALABRAS_INTENSIDAD = ["fuerte", "intenso", "continuo", "insoportable"];
+const PALABRAS_CONCIENCIA = [
+  "mareo",
+  "desmayo",
+  "desmaye",
+  "somnolencia",
+  "mucho sueno",
+  "muy dormido",
+  "muy dormida",
+  "no puedo mantenerme despierto",
+  "no puedo mantenerme despierta",
+];
+
+function detectarSignoAlarma(textoOriginal: string): boolean {
+  const t = normalizarTexto(textoOriginal);
+
+  if (contieneAlguna(t, PALABRAS_CONCIENCIA)) return true;
+  if (contieneAlguna(t, RAICES_VOMITO) && contieneAlguna(t, RAICES_SANGRE)) return true;
+  if (contieneAlguna(t, RAICES_VOMITO) && contieneAlguna(t, PALABRAS_FRECUENCIA)) return true;
+  if (contieneAlguna(t, RAICES_SANGRE) && contieneAlguna(t, PALABRAS_ENCIAS_NARIZ)) return true;
+  if (
+    contieneAlguna(t, PALABRAS_DOLOR) &&
+    contieneAlguna(t, PALABRAS_ZONA_ABDOMINAL) &&
+    contieneAlguna(t, PALABRAS_INTENSIDAD)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+const MENSAJE_ALARMA =
+  "🚨 Lo que contás son signos de alarma del dengue. Andá a un hospital o centro de salud urgente, o llamá al 911. No es algo para resolver por chat.";
 
 function limpiarMensaje(value: unknown): MensajeChat | null {
   const m = (value ?? {}) as Record<string, unknown>;
@@ -78,6 +140,20 @@ export const preguntarAlAsistente = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data }): Promise<RespuestaAsistente> => {
+    // Los signos de alarma cortan acá, antes de Groq: es la parte de
+    // seguridad del flujo, tiene que ser inmediata y determinística.
+    // "Pegajosa" por sesión: si ya hubo un signo de alarma en algún mensaje
+    // previo del usuario dentro del historial, seguimos cortando en los
+    // turnos siguientes aunque el mensaje actual no repita las palabras de
+    // alarma - preferimos insistir de más a que se pierda la urgencia
+    // porque el modelo no la sostiene entre turnos.
+    const huboAlarmaAntes = data.historial.some(
+      (m) => m.rol === "user" && detectarSignoAlarma(m.texto),
+    );
+    if (huboAlarmaAntes || detectarSignoAlarma(data.pregunta)) {
+      return { ok: true, texto: MENSAJE_ALARMA };
+    }
+
     // Notacion de corchetes por noPropertyAccessFromIndexSignature del tsconfig.
     const apiKey = process.env["GROQ_API_KEY"];
     if (!apiKey) {
