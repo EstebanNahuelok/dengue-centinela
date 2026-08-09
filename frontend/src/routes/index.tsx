@@ -9,7 +9,6 @@ import {
   MonitorSmartphone,
   ShieldCheck,
   Siren,
-  Stethoscope,
 } from "lucide-react";
 
 import {
@@ -64,7 +63,7 @@ const STEPS = [
   },
 ] as const;
 
-// Los cuatro agentes son los que corren de verdad en el backend
+// Los tres agentes son los que corren de verdad en el backend
 // (backend/src/agents/). El color de cada uno sigue la escala de riesgo, así
 // la paleta no introduce tonos nuevos.
 const AGENTES = [
@@ -88,13 +87,6 @@ const AGENTES = [
     ring: "border-risk-high/40 bg-risk-high/10",
     name: "Recalculador",
     body: "Cruza los reportes de los últimos 7 días con la lluvia acumulada de la zona y actualiza el score de riesgo de 0 a 100 que pinta el mapa.",
-  },
-  {
-    icon: Stethoscope,
-    tone: "text-risk-critical",
-    ring: "border-risk-critical/40 bg-risk-critical/10",
-    name: "Recomendador",
-    body: "Devuelve medidas de alivio no farmacológicas y siempre deriva a un centro de salud. Por diseño nunca nombra un medicamento.",
   },
 ] as const;
 
@@ -327,16 +319,16 @@ function Home() {
       </section>
 
       {/* ---------------------------------------------------------------- *
-       * Los cuatro agentes
+       * Los tres agentes
        * ---------------------------------------------------------------- */}
       <section className="border-t border-border">
         <div className="mx-auto max-w-7xl px-4 py-14">
-          <h2 className="text-2xl font-bold text-foreground">Cuatro agentes, una cadena</h2>
+          <h2 className="text-2xl font-bold text-foreground">Tres agentes, una cadena</h2>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Cada agente hace una sola cosa y le pasa el resultado al siguiente. Todos tienen un
             respaldo determinista: si el modelo falla o tarda, el flujo sigue funcionando.
           </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {AGENTES.map((a, i) => (
               <article key={a.name} className="rounded-2xl border border-border bg-card p-5">
                 <div className="flex items-center justify-between gap-2">

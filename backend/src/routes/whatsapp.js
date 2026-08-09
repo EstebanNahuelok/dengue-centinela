@@ -11,7 +11,6 @@ import {
 } from '../agents/agente1_conversacional.js';
 import { clasificarReporte } from '../agents/agente2_clasificador.js';
 import { recalcularBarrio } from '../agents/agente3_recalculador.js';
-import { generarRecomendacion } from '../agents/agente4_recomendador.js';
 import { twimlRespuesta } from '../services/twilio.js';
 import { BARRIOS, coordsDeBarrio } from '../utils/barrios.js';
 import { getPendiente, setPendiente, clearPendiente } from '../utils/conversationState.js';
@@ -57,23 +56,9 @@ const MENSAJE_BARRIO_NO_RECONOCIDO = 'No reconozco ese barrio, ¿podés escribir
 // clara con lo que el usuario contesto en la entrevista guiada y se la
 // pasamos entera - la unica excepcion son los signos de alarma, que se
 // deciden aca mismo de forma determinista y nunca pasan por Groq.
-//
-// Una vez cerrado el reporte, agente4_recomendador.js le agrega al mensaje
-// de cierre las medidas de alivio NO farmacologicas (via Groq, con respaldo
-// heuristico propio). Solo aplica al flujo de sintomas: un criadero no
-// necesita recomendacion medica.
 
 function responder(res, texto) {
   return res.type('text/xml').send(twimlRespuesta(texto));
-}
-
-// El texto determinista (confirmacion / alarma) va SIEMPRE primero: si Groq
-// se cuelga, agente4 igual devuelve su fallback, pero el mensaje critico no
-// depende de eso. generarRecomendacion() nunca lanza: atrapa timeout, error
-// de red y respuestas con medicamentos, y cae a su heuristica segura.
-async function conRecomendacion(mensajeBase, { nivelSospecha, sintomasDetectados = [], signoAlarma = false }) {
-  const recomendacion = await generarRecomendacion({ nivelSospecha, sintomasDetectados, signoAlarma });
-  return `${mensajeBase}\n\n${recomendacion}`;
 }
 
 function acumular(estado, texto) {
@@ -131,12 +116,7 @@ async function manejarAlarma(res, { From, estado, texto }) {
     clasificacion: 'sospecha_alta',
   });
 
-  const mensaje = await conRecomendacion(MENSAJE_ALARMA, {
-    nivelSospecha: 'sospecha_alta',
-    sintomasDetectados: estado.sintomasDetectados ?? [],
-    signoAlarma: true,
-  });
-  return responder(res, mensaje);
+  return responder(res, MENSAJE_ALARMA);
 }
 
 function manejarMenuNuevo(res, { From }) {
@@ -197,17 +177,8 @@ async function manejarBarrioSintoma(res, { From, estado, texto }) {
   const clasificacion = await clasificarReporte({ tipo: 'sintoma', descripcion });
   await guardarReporte({ From, tipo: 'sintoma', barrio, descripcion, clasificacion });
 
-  // no_relevante ya cierra con su propio texto (no hay fiebre, no hay cuadro
-  // compatible): no tiene sentido mandar medidas de alivio ahi.
-  if (clasificacion === 'no_relevante') {
-    return responder(res, MENSAJE_NO_RELEVANTE_SINTOMA);
-  }
-
-  const mensaje = await conRecomendacion(`Gracias, registramos tu reporte en la zona ${barrio}.`, {
-    nivelSospecha: clasificacion,
-    sintomasDetectados: estado.sintomasDetectados ?? [],
-    signoAlarma: false,
-  });
+  const mensaje =
+    clasificacion === 'no_relevante' ? MENSAJE_NO_RELEVANTE_SINTOMA : `Gracias, registramos tu reporte en la zona ${barrio}.`;
   return responder(res, mensaje);
 }
 
