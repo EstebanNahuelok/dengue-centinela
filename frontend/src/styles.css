@@ -242,6 +242,33 @@
     0 1px 5px rgba(0, 0, 0, 0.55);
 }
 
+/* En smartphones los marcadores de hospital se reducen para evitar
+   superposición con los hexágonos y entre sí. */
+@media (max-width: 639px) {
+  .leaflet-marker-icon.dengue-hospital-dot {
+    transform: scale(0.75);
+  }
+
+  .dengue-zone-label > span {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  .dengue-province-label > span {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  /* Reducir el ancho intrínseco de las etiquetas para que no se superpongan
+     con los controles flotantes. Leaflet usa estilos inline para el tamaño
+     del div pero podemos encoger el span visual. */
+  .leaflet-marker-icon.dengue-zone-label,
+  .leaflet-marker-icon.dengue-province-label {
+    width: 120px !important;
+    margin-left: -60px !important;
+  }
+}
+
 .leaflet-marker-icon.dengue-hospital-dot:focus-visible {
   outline: 2px solid var(--foreground);
   outline-offset: 2px;

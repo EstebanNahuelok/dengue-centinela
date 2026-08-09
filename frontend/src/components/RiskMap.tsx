@@ -714,7 +714,7 @@ export function RiskMap() {
           </div>
         )}
 
-        <div className="absolute left-3 top-3 z-[900] flex flex-col gap-2">
+        <div className="absolute bottom-24 left-2 z-[900] flex flex-col gap-1.5 sm:bottom-auto sm:left-3 sm:top-3 sm:gap-2">
           <MapButton label="Acercar" onClick={() => zoom(1)}>
             <Plus className="h-4.5 w-4.5" />
           </MapButton>
@@ -751,17 +751,17 @@ export function RiskMap() {
           </MapButton>
         </div>
 
-        <div className="absolute right-3 top-3 z-[900] flex flex-col items-end gap-2">
+        <div className="absolute right-2 top-2 z-[900] flex max-w-[calc(100%-4rem)] flex-col items-end gap-1.5 sm:right-3 sm:top-3 sm:max-w-none sm:gap-2">
           {/* Momento clave del pitch: dispara POST /recalcular en vivo. */}
           <button
             type="button"
             onClick={() => void loadStatus("recalc")}
             disabled={refreshing}
             aria-busy={refreshing}
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-2 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 sm:px-3.5 sm:py-1.5"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-2.5 py-1.5 text-[11px] font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-xs"
           >
             <RefreshCw
-              className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              className={`h-3.5 w-3.5 sm:h-3.5 sm:w-3.5 ${refreshing ? "animate-spin" : ""}`}
             />
             {/* En pantallas chicas queda solo el ícono, para no comerse el mapa. */}
             <span className="hidden sm:inline">
@@ -771,14 +771,14 @@ export function RiskMap() {
 
           {/* Predicción: proyecta el riesgo con el pronóstico de Open-Meteo.
               Repinta los mismos hexágonos, no cambia la geometría del mapa. */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-1.5">
             {prediccion && (
               <button
                 type="button"
                 onClick={volverAActual}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-2 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:py-1.5"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card/90 px-2 py-1.5 text-[11px] font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
+                <RotateCcw className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">Ver actual</span>
               </button>
             )}
@@ -793,14 +793,14 @@ export function RiskMap() {
                   disabled={prediciendo}
                   aria-pressed={activo}
                   aria-label={`Predecir riesgo a ${h} días`}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 sm:py-1.5 ${
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1.5 text-[11px] font-semibold shadow-lg backdrop-blur transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs ${
                     activo
                       ? "border-primary/60 bg-primary/15 text-foreground"
                       : "border-border bg-card/90 text-foreground hover:bg-accent"
                   }`}
                 >
                   <TrendingUp
-                    className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${prediciendo ? "animate-pulse" : ""}`}
+                    className={`h-3.5 w-3.5 sm:h-3.5 sm:w-3.5 ${prediciendo ? "animate-pulse" : ""}`}
                   />
                   {prediciendo ? "…" : `+${h}d`}
                 </button>
@@ -820,20 +820,20 @@ export function RiskMap() {
               aria-label={`Clima usado para predecir: ${
                 escenario === "real" ? "pronóstico real" : "escenario de temporada simulado"
               }. Tocá para cambiar.`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-2 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 sm:py-1.5"
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-card/90 px-2 py-1.5 text-[11px] font-medium text-muted-foreground shadow-lg backdrop-blur transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             >
-              <CloudRain className="h-3.5 w-3.5" />
+              <CloudRain className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               {escenario === "real" ? "real" : "temporada"}
             </button>
           </div>
 
           {/* Mientras hay proyección activa, decimos de dónde sale. */}
           {prediccion && (
-            <p className="pointer-events-none flex max-w-[15rem] items-center gap-1.5 rounded-full border border-primary/50 bg-primary/10 px-3 py-1 text-[11px] font-medium text-foreground backdrop-blur">
+            <p className="pointer-events-none flex max-w-[11rem] items-center gap-1 rounded-full border border-primary/50 bg-primary/10 px-2 py-1 text-[10px] font-medium text-foreground backdrop-blur sm:max-w-[15rem] sm:gap-1.5 sm:px-3 sm:text-[11px]">
               <CloudRain className="h-3 w-3 shrink-0" aria-hidden="true" />
               <span className="truncate">
-                Proyección +{prediccion.horizonte}d ·{" "}
-                {prediccion.escenario === "temporada" ? "temporada SIMULADA" : "clima real"} ·{" "}
+                +{prediccion.horizonte}d ·{" "}
+                {prediccion.escenario === "temporada" ? "simulado" : "real"} ·{" "}
                 {prediccion.resumen.lluviaMm} mm · {prediccion.resumen.tempMedia}°C
               </span>
             </p>

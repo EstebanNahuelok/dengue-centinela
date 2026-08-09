@@ -273,18 +273,18 @@ function PanelPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:pb-6">
+    <div className="mx-auto max-w-7xl px-3 py-4 pb-24 sm:px-4 sm:py-6 sm:pb-6">
       {/* Encabezado ------------------------------------------------- */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-foreground">Panel epidemiológico</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-lg font-bold text-foreground sm:text-xl">Panel epidemiológico</h1>
+          <p className="mt-0.5 text-[12px] text-muted-foreground sm:mt-1 sm:text-sm">
             Priorización operativa por riesgo · Noroeste Argentino
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-[10px] text-muted-foreground sm:px-2.5 sm:text-[11px]">
             <span
               className={`h-1.5 w-1.5 rounded-full ${
                 USING_MOCK ? "bg-risk-mid" : isError ? "bg-risk-critical" : "bg-risk-low"
@@ -303,7 +303,7 @@ function PanelPage() {
             type="button"
             onClick={() => void refetch()}
             disabled={isFetching}
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50 sm:gap-2 sm:px-3 sm:py-2 sm:text-xs"
           >
             {isFetching ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -316,7 +316,7 @@ function PanelPage() {
       </div>
 
       {/* Selector de alcance --------------------------------------- */}
-      <nav aria-label="Alcance del panel" className="mt-5 flex flex-wrap gap-2">
+      <nav aria-label="Alcance del panel" className="mt-4 flex flex-wrap gap-1.5 sm:mt-5 sm:gap-2">
         <ScopeChip
           label="Todo el NOA"
           detail={`${noaStats.zones} zonas`}
@@ -339,12 +339,12 @@ function PanelPage() {
       </nav>
 
       {/* KPIs ------------------------------------------------------ */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {kpis.map((k) => (
-          <div key={k.k} className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{k.k}</p>
-            <p className={`mt-2 text-3xl font-bold ${k.tone}`}>{k.v}</p>
-            <p className="mt-1 truncate text-[11px] text-muted-foreground">{k.hint}</p>
+          <div key={k.k} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
+            <p className="truncate text-[10px] text-muted-foreground sm:text-xs">{k.k}</p>
+            <p className={`mt-1.5 text-2xl font-bold sm:mt-2 sm:text-3xl ${k.tone}`}>{k.v}</p>
+            <p className="mt-1 truncate text-[10px] text-muted-foreground sm:text-[11px]">{k.hint}</p>
           </div>
         ))}
       </div>
@@ -421,8 +421,58 @@ function PanelPage() {
           Las 6 provincias de la región. Tocá una fila para filtrar todo el panel.
         </p>
 
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-card">
-          <table className="w-full min-w-[760px] text-sm">
+        {/* Vista mobile: cards apiladas */}
+        <div className="mt-3 space-y-2 md:hidden">
+          {data.summaries.map((s) => {
+            const total = cellsByProvince.get(s.province.id) ?? 0;
+            const share = pct(s.reports, noaStats.reports);
+            const active = scope === s.province.id;
+            return (
+              <button
+                key={s.province.id}
+                type="button"
+                onClick={() => setScope(s.province.id)}
+                aria-current={active ? "true" : undefined}
+                className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                  active ? "border-primary/60 bg-primary/10" : "border-border bg-card hover:bg-accent"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">{s.province.name}</h3>
+                  <RiskBadge score={s.score} showScore={false} />
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{s.province.capital}</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-muted-foreground">Score</span>
+                    <p className="font-mono font-semibold text-foreground">{s.score}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Reportes</span>
+                    <p className="font-mono text-foreground">{s.reports}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Altas</span>
+                    <p className="font-mono text-foreground">{s.highCells}/{total}</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <span
+                      className={`block h-full ${LEVEL_BG[s.level]}`}
+                      style={{ width: `${share}%` }}
+                    />
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground">{share}%</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Vista desktop: tabla completa */}
+        <div className="mt-3 hidden overflow-x-auto rounded-2xl border border-border bg-card md:block">
+          <table className="w-full text-sm">
             <caption className="sr-only">
               Provincias del Noroeste Argentino ordenadas por score de riesgo de dengue
             </caption>
@@ -512,20 +562,20 @@ function PanelPage() {
           <span className="text-[11px] text-muted-foreground">celdas H3 de mayor score</span>
         </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
           {hotspots.map((cell) => (
-            <article key={cell.h3} className="rounded-2xl border border-border bg-card p-4">
+            <article key={cell.h3} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-foreground">{cell.zone}</h3>
-                  <p className="truncate text-[11px] text-muted-foreground">
+                  <h3 className="truncate text-[13px] font-semibold text-foreground sm:text-sm">{cell.zone}</h3>
+                  <p className="truncate text-[10px] text-muted-foreground sm:text-[11px]">
                     {cell.province ? (PROVINCE_NAME.get(cell.province) ?? "NOA") : "NOA"}
                   </p>
                 </div>
                 <RiskBadge score={cell.score} showScore={false} />
               </div>
 
-              <dl className="mt-3 space-y-1.5 text-[11px]">
+              <dl className="mt-2 space-y-1 text-[11px] sm:mt-3 sm:space-y-1.5">
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">Score</dt>
                   <dd className={`font-mono font-semibold ${LEVEL_TEXT[cell.level]}`}>
@@ -548,7 +598,7 @@ function PanelPage() {
                 </div>
               </dl>
 
-              <p className="mt-3 truncate font-mono text-[10px] text-muted-foreground">{cell.h3}</p>
+              <p className="mt-2 truncate font-mono text-[10px] text-muted-foreground sm:mt-3">{cell.h3}</p>
             </article>
           ))}
         </div>
@@ -569,11 +619,11 @@ function PanelPage() {
             return (
               <div
                 key={z.key}
-                className="grid gap-3 rounded-xl border border-border bg-card p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+                className="grid gap-2 rounded-xl border border-border bg-card p-3 sm:gap-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
               >
                 <div className="min-w-0">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <h3 className="truncate text-base font-semibold text-foreground">{z.zone}</h3>
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+                    <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">{z.zone}</h3>
                     {scope === "noa" && (
                       <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                         {z.provinceName}
@@ -592,7 +642,7 @@ function PanelPage() {
                     )}
                   </div>
 
-                  <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <dl className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground sm:mt-2 sm:gap-x-4 sm:text-xs">
                     <span className="inline-flex gap-1">
                       <dt>Reportes:</dt>
                       <dd className="font-mono text-foreground">{z.reports}</dd>
@@ -627,13 +677,13 @@ function PanelPage() {
                   </dl>
                 </div>
 
-                <div className="flex items-center gap-3 lg:justify-end">
+                <div className="flex items-center gap-2 sm:gap-3 lg:justify-end">
                   <RiskBadge score={z.score} />
                   <button
                     type="button"
                     onClick={() => toggleZoneIntervened(z.key)}
                     aria-pressed={intervenida}
-                    className="shrink-0 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                    className="shrink-0 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent sm:px-3 sm:py-2 sm:text-xs"
                   >
                     {intervenida ? "Reabrir" : "Marcar intervenida"}
                   </button>
@@ -683,7 +733,7 @@ function ScopeChip({
       type="button"
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:gap-2 sm:px-3 sm:py-2 sm:text-[13px] ${
         active
           ? "border-primary/60 bg-primary/10 text-foreground"
           : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -691,7 +741,7 @@ function ScopeChip({
     >
       <span className="grid h-4 w-4 place-items-center">{icon}</span>
       {label}
-      <span className="font-mono text-[11px] font-normal text-muted-foreground">{detail}</span>
+      <span className="hidden font-mono text-[11px] font-normal text-muted-foreground sm:inline">{detail}</span>
     </button>
   );
 }

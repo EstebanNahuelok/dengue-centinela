@@ -4,6 +4,7 @@ import cors from 'cors';
 import whatsappRouter from './routes/whatsapp.js';
 import statusRouter from './routes/status.js';
 import recalcularRouter from './routes/recalcular.js';
+import reportesRouter from './routes/reportes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -17,6 +18,7 @@ app.get('/', (req, res) => res.json({ ok: true, service: 'dengue-centinela-backe
 app.use('/webhook/whatsapp', whatsappRouter);
 app.use('/status', statusRouter);
 app.use('/recalcular', recalcularRouter);
+app.use('/reportes', reportesRouter);
 
 app.use(errorHandler);
 

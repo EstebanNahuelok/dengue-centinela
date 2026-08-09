@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { HexMap } from "@/components/HexMap";
-import { RiskBadge } from "@/components/RiskBadge";
-import { SYMPTOMS, riskLevel, type Hex, type Report } from "@/lib/mock-data";
-import { addReport, useAppState } from "@/lib/store";
+
+import { BARRIOS, barrioMasCercano } from "@/lib/barrios";
+import {
+  contarPendientes,
+  enviarReporte,
+  sincronizarPendientes,
+  type ReportePayload,
+  type ResultadoEnvio,
+} from "@/lib/offline-queue";
 
 export const Route = createFileRoute("/reportar")({
   head: () => ({
@@ -12,7 +17,7 @@ export const Route = createFileRoute("/reportar")({
       {
         name: "description",
         content:
-          "Cargá en un minuto un reporte de síntomas o de agua estancada y ayudá a anticipar brotes de dengue en tu barrio.",
+          "Cargá en un minuto un reporte de síntomas o de agua estancada y ayudá a anticipar brotes de dengue en tu barrio. Funciona sin señal.",
       },
       { property: "og:title", content: "Reportar síntomas o criaderos de dengue" },
       {
@@ -24,59 +29,239 @@ export const Route = createFileRoute("/reportar")({
   component: ReportarPage,
 });
 
-type Tipo = Report["type"];
+type Tipo = "sintomas" | "criadero" | "ambos";
+
+/**
+ * Los 6 síntomas asociados del criterio del Ministerio de Salud. La fiebre va
+ * aparte porque es la compuerta del Agente 2: sin fiebre, el caso nunca es
+ * sospecha (ver backend/src/agents/agente2_clasificador.js).
+ */
+const SINTOMAS_ASOCIADOS = [
+  "dolor de cabeza intenso",
+  "dolor detrás de los ojos",
+  "dolores musculares o articulares",
+  "náuseas o vómitos",
+  "sarpullido",
+  "cansancio extremo",
+] as const;
+
+/**
+ * Mismo formato estructurado que arma el webhook de WhatsApp
+ * (backend/src/routes/whatsapp.js#descripcionParaSintomas). El Agente 2 está
+ * validado contra esta forma exacta, así que no conviene inventar otra.
+ */
+function descripcionSintomas(fiebre: boolean, sintomas: string[], detalle: string): string {
+  const lista = sintomas.length > 0 ? sintomas.join(", ") : "ninguno";
+  const propio = detalle.trim() || "(sin detalle adicional)";
+  return (
+    `Fiebre: ${fiebre ? "sí" : "no"}. Síntomas asociados mencionados: ${lista}. ` +
+    `Mensaje original del usuario: "${propio}"`
+  );
+}
+
+function descripcionCriadero(detalle: string, conFoto: boolean): string {
+  const base = detalle.trim() || "Agua estancada reportada por un vecino";
+  // La foto no se sube (el backend no almacena imágenes), pero dejamos
+  // constancia de que el vecino vio algo concreto como para fotografiarlo.
+  return conFoto ? `${base} (el vecino adjuntó una foto)` : base;
+}
+
+/** Id anónimo y estable por dispositivo: el backend lo hashea, nunca lo guarda en crudo. */
+function obtenerClienteId(): string {
+  const CLAVE = "dengue-centinela:cliente-id";
+  try {
+    const guardado = localStorage.getItem(CLAVE);
+    if (guardado) return guardado;
+    const nuevo = crypto.randomUUID();
+    localStorage.setItem(CLAVE, nuevo);
+    return nuevo;
+  } catch {
+    return "anonimo";
+  }
+}
 
 function ReportarPage() {
-  const { hexes } = useAppState();
   const [step, setStep] = useState(1);
   const [tipo, setTipo] = useState<Tipo>("criadero");
-  const [hex, setHex] = useState<Hex | null>(null);
+  const [barrio, setBarrio] = useState<string | null>(null);
+  const [fiebre, setFiebre] = useState(false);
   const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [detalle, setDetalle] = useState("");
   const [photo, setPhoto] = useState(false);
-  const [resultado, setResultado] = useState<{ zone: string; score: number } | null>(null);
+
+  const [online, setOnline] = useState(true);
+  const [pendientes, setPendientes] = useState(0);
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<ResultadoEnvio | null>(null);
+  const [avisoSync, setAvisoSync] = useState<string | null>(null);
+  const [ubicando, setUbicando] = useState(false);
+
+  const refrescarPendientes = useCallback(() => {
+    contarPendientes()
+      .then(setPendientes)
+      .catch(() => setPendientes(0));
+  }, []);
+
+  // El service worker se registra desde acá (y no en __root.tsx) para que la
+  // capacidad offline sea autocontenida en la pantalla que la necesita.
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.error("No se pudo registrar el service worker:", err);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    refrescarPendientes();
+
+    // Fallback obligatorio: Background Sync no existe en Safari/iOS, así que
+    // sin este listener esos usuarios se quedarían con el reporte trabado.
+    const alVolverLaRed = () => {
+      setOnline(true);
+      sincronizarPendientes()
+        .then(({ enviados }) => {
+          if (enviados > 0) {
+            setAvisoSync(
+              `Se ${enviados === 1 ? "envió el reporte que estaba" : `enviaron los ${enviados} reportes que estaban`} en espera.`,
+            );
+          }
+          refrescarPendientes();
+        })
+        .catch(() => refrescarPendientes());
+    };
+    const alPerderLaRed = () => setOnline(false);
+
+    window.addEventListener("online", alVolverLaRed);
+    window.addEventListener("offline", alPerderLaRed);
+
+    // El service worker avisa cuando vació la cola por Background Sync.
+    const alMensaje = (e: MessageEvent) => {
+      if (e.data?.tipo === "reportes-sincronizados") {
+        setAvisoSync(`Se sincronizaron ${e.data.enviados} reporte(s) en espera.`);
+        refrescarPendientes();
+      }
+    };
+    navigator.serviceWorker?.addEventListener("message", alMensaje);
+
+    return () => {
+      window.removeEventListener("online", alVolverLaRed);
+      window.removeEventListener("offline", alPerderLaRed);
+      navigator.serviceWorker?.removeEventListener("message", alMensaje);
+    };
+  }, [refrescarPendientes]);
 
   const toggle = (s: string) =>
     setSymptoms((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
 
-  const enviar = () => {
-    if (!hex) return;
-    // POST /reports  (multipart/form-data con la foto y la geolocalización)
-    const { hex: updated } = addReport({
-      type: tipo,
-      zone: hex.zone,
-      hexId: hex.id,
-      symptoms,
-      photo,
-    });
-    if (updated) setResultado({ zone: updated.zone, score: updated.score });
+  const usarMiUbicacion = () => {
+    if (!("geolocation" in navigator)) return;
+    setUbicando(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setBarrio(barrioMasCercano(pos.coords.latitude, pos.coords.longitude).nombre);
+        setUbicando(false);
+      },
+      () => setUbicando(false),
+      { timeout: 8000 },
+    );
+  };
+
+  const enviar = async () => {
+    if (!barrio || enviando) return;
+    setEnviando(true);
+    setResultado(null);
+    setAvisoSync(null);
+
+    const clienteId = obtenerClienteId();
+
+    // "Ambos" no existe en el backend (el enum es sintoma | criadero), así que
+    // se manda como dos reportes reales en vez de perder la mitad del dato.
+    const payloads: ReportePayload[] = [];
+    if (tipo === "sintomas" || tipo === "ambos") {
+      payloads.push({
+        tipo: "sintoma",
+        barrio,
+        descripcion: descripcionSintomas(fiebre, symptoms, detalle),
+        clienteId,
+      });
+    }
+    if (tipo === "criadero" || tipo === "ambos") {
+      payloads.push({
+        tipo: "criadero",
+        barrio,
+        descripcion: descripcionCriadero(detalle, photo),
+        clienteId,
+      });
+    }
+
+    const resultados = await Promise.all(payloads.map(enviarReporte));
+
+    // Si alguno quedó en cola, el mensaje honesto es "quedó pendiente".
+    const error = resultados.find((r) => r.estado === "error");
+    const encolado = resultados.find((r) => r.estado === "encolado");
+    setResultado(error ?? encolado ?? resultados[0] ?? { estado: "encolado" });
+
+    setEnviando(false);
+    refrescarPendientes();
     setStep(5);
   };
 
+  /* ---------------------------------------------------------------- *
+   * Paso 5: resultado
+   * ---------------------------------------------------------------- */
   if (step === 5 && resultado) {
+    const encolado = resultado.estado === "encolado";
+    const fallo = resultado.estado === "error";
+
     return (
       <div className="mx-auto max-w-md px-4 py-10">
         <div className="rounded-2xl border border-border bg-card p-6 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-risk-low/40 bg-risk-low/15 text-2xl text-risk-low">
-            ✓
+          <div
+            className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full border text-2xl ${
+              fallo
+                ? "border-risk-critical/40 bg-risk-critical/15 text-risk-critical"
+                : encolado
+                  ? "border-risk-high/40 bg-risk-high/15 text-risk-high"
+                  : "border-risk-low/40 bg-risk-low/15 text-risk-low"
+            }`}
+          >
+            {fallo ? "!" : encolado ? "⏱" : "✓"}
           </div>
-          <h1 className="mt-4 text-xl font-bold text-foreground">Reporte enviado</h1>
+
+          <h1 className="mt-4 text-xl font-bold text-foreground">
+            {fallo ? "No se pudo enviar" : encolado ? "Guardado sin conexión" : "Reporte enviado"}
+          </h1>
+
           <p className="mt-2 text-sm text-muted-foreground">
-            Gracias. Tu reporte ya se sumó al mapa de {resultado.zone}.
+            {fallo
+              ? resultado.mensaje
+              : encolado
+                ? "No hay señal ahora mismo, pero tu reporte quedó guardado en el celular y se va a enviar solo apenas vuelva la conexión. No hace falta que lo cargues de nuevo."
+                : `Gracias. Tu reporte ya se sumó al mapa de ${barrio}.`}
           </p>
-          <div className="mt-5 rounded-xl border border-border bg-secondary p-4">
-            <p className="text-xs text-muted-foreground">Nuevo nivel de riesgo de la zona</p>
-            <div className="mt-2 flex items-center justify-center">
-              <RiskBadge score={resultado.score} />
-            </div>
-            {riskLevel(resultado.score) === "alto" && (
-              <p className="mt-3 text-xs text-risk-critical">
-                Umbral superado: se notificó al municipio y a los vecinos cercanos.
+
+          {!fallo && !encolado && resultado.clasificacion && (
+            <div className="mt-5 rounded-xl border border-border bg-secondary p-4">
+              <p className="text-xs text-muted-foreground">Clasificación automática</p>
+              <p className="mt-1 text-sm font-semibold capitalize text-foreground">
+                {resultado.clasificacion.replace("_", " ")}
               </p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {encolado && pendientes > 0 && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              {pendientes} reporte{pendientes === 1 ? "" : "s"} en espera de envío.
+            </p>
+          )}
+
           <p className="mt-4 text-xs text-muted-foreground">
-            Esto no es un diagnóstico médico. Si tenés síntomas, consultá al sistema de salud.
+            Esto no es un diagnóstico médico. Si tenés síntomas, consultá al centro de salud más
+            cercano o llamá al 107.
           </p>
+
           <div className="mt-5 flex flex-col gap-2">
             <Link
               to="/mapa"
@@ -84,12 +269,19 @@ function ReportarPage() {
             >
               Ver el mapa
             </Link>
-            <Link
-              to="/panel"
+            <button
+              onClick={() => {
+                setStep(1);
+                setResultado(null);
+                setDetalle("");
+                setSymptoms([]);
+                setFiebre(false);
+                setPhoto(false);
+              }}
               className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-semibold text-foreground"
             >
-              Ver panel del municipio
-            </Link>
+              Cargar otro reporte
+            </button>
           </div>
         </div>
       </div>
@@ -112,6 +304,30 @@ function ReportarPage() {
           ))}
         </div>
       </div>
+
+      {!online && (
+        <div
+          role="status"
+          className="mb-4 rounded-xl border border-risk-high/40 bg-risk-high/10 p-3 text-xs text-risk-high"
+        >
+          Sin conexión. Cargá el reporte igual: se envía solo cuando vuelva la señal.
+        </div>
+      )}
+
+      {avisoSync && (
+        <div
+          role="status"
+          className="mb-4 rounded-xl border border-risk-low/40 bg-risk-low/15 p-3 text-xs text-risk-low"
+        >
+          {avisoSync}
+        </div>
+      )}
+
+      {pendientes > 0 && !avisoSync && (
+        <div className="mb-4 rounded-xl border border-border bg-secondary p-3 text-xs text-muted-foreground">
+          {pendientes} reporte{pendientes === 1 ? "" : "s"} en espera de envío.
+        </div>
+      )}
 
       {step === 1 && (
         <section className="space-y-3">
@@ -140,29 +356,40 @@ function ReportarPage() {
 
       {step === 2 && (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">¿Dónde?</h2>
+          <h2 className="text-sm font-semibold text-foreground">¿En qué barrio?</h2>
           <p className="text-xs text-muted-foreground">
-            Tocá un hexágono para ubicar el reporte, o usá tu ubicación.
+            Elegí tu barrio, o dejá que lo detectemos por tu ubicación.
           </p>
           <button
-            onClick={() => setHex(hexes[22] ?? hexes[0] ?? null)}
-            className="w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-medium text-foreground"
+            onClick={usarMiUbicacion}
+            disabled={ubicando}
+            className="w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-medium text-foreground disabled:opacity-40"
           >
-            Usar mi ubicación
+            {ubicando ? "Buscando tu ubicación…" : "Usar mi ubicación"}
           </button>
-          <div className="h-56 overflow-hidden rounded-xl border border-border bg-card">
-            <HexMap hexes={hexes} selectedId={hex ? hex.id : null} onSelect={setHex} />
+
+          <div className="grid grid-cols-2 gap-2">
+            {BARRIOS.map((b) => (
+              <button
+                key={b.nombre}
+                onClick={() => setBarrio(b.nombre)}
+                className={`rounded-xl border p-3 text-sm font-medium transition-colors ${
+                  barrio === b.nombre
+                    ? "border-primary bg-secondary text-foreground"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                {b.nombre}
+              </button>
+            ))}
           </div>
-          {hex && (
+
+          {barrio && (
             <p className="text-xs text-muted-foreground">
-              Seleccionado: <span className="text-foreground">{hex.zone}</span> · H3 {hex.h3}
+              Seleccionado: <span className="text-foreground">{barrio}</span>
             </p>
           )}
-          <NavButtons
-            onBack={() => setStep(1)}
-            onNext={() => setStep(3)}
-            disabled={!hex}
-          />
+          <NavButtons onBack={() => setStep(1)} onNext={() => setStep(3)} disabled={!barrio} />
         </section>
       )}
 
@@ -171,11 +398,20 @@ function ReportarPage() {
           {needsSymptoms && (
             <>
               <h2 className="text-sm font-semibold text-foreground">Síntomas</h2>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={fiebre}
+                  onChange={(e) => setFiebre(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--primary)]"
+                />
+                Fiebre alta (38°C o más)
+              </label>
               <div className="grid gap-2">
-                {SYMPTOMS.map((s) => (
+                {SINTOMAS_ASOCIADOS.map((s) => (
                   <label
                     key={s}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card p-3 text-sm text-foreground"
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card p-3 text-sm capitalize text-foreground"
                   >
                     <input
                       type="checkbox"
@@ -189,10 +425,10 @@ function ReportarPage() {
               </div>
             </>
           )}
+
           {needsPhoto && (
             <>
               <h2 className="mt-4 text-sm font-semibold text-foreground">Foto del criadero</h2>
-              {/* Mock: la foto no se procesa. Iría en el multipart de POST /reports */}
               <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card p-6 text-center">
                 <input
                   type="file"
@@ -203,10 +439,25 @@ function ReportarPage() {
                 <span className="text-sm text-foreground">
                   {photo ? "Foto cargada ✓" : "Tocá para subir una foto"}
                 </span>
-                <span className="text-xs text-muted-foreground">JPG o PNG, hasta 5 MB</span>
+                <span className="text-xs text-muted-foreground">Opcional</span>
               </label>
             </>
           )}
+
+          <h2 className="mt-4 text-sm font-semibold text-foreground">Contanos con tus palabras</h2>
+          <textarea
+            value={detalle}
+            onChange={(e) => setDetalle(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder={
+              needsSymptoms
+                ? "Ej: tengo fiebre desde ayer y me duele mucho la cabeza"
+                : "Ej: hay un neumático con agua estancada hace una semana en el baldío"
+            }
+            className="w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground"
+          />
+
           <NavButtons onBack={() => setStep(2)} onNext={() => setStep(4)} />
         </section>
       )}
@@ -216,14 +467,22 @@ function ReportarPage() {
           <h2 className="text-sm font-semibold text-foreground">Confirmá el reporte</h2>
           <dl className="space-y-2 rounded-xl border border-border bg-card p-4 text-sm">
             <Row k="Tipo" v={tipo} />
-            <Row k="Zona" v={hex?.zone ?? "-"} />
-            {symptoms.length > 0 && <Row k="Síntomas" v={symptoms.join(", ")} />}
+            <Row k="Barrio" v={barrio ?? "-"} />
+            {needsSymptoms && <Row k="Fiebre" v={fiebre ? "Sí" : "No"} />}
+            {needsSymptoms && symptoms.length > 0 && <Row k="Síntomas" v={symptoms.join(", ")} />}
             {needsPhoto && <Row k="Foto" v={photo ? "Adjunta" : "Sin foto"} />}
           </dl>
           <p className="rounded-xl border border-risk-high/40 bg-risk-high/10 p-3 text-xs text-risk-high">
             Esto no es un diagnóstico médico. Si tenés síntomas, consultá al sistema de salud.
           </p>
-          <NavButtons onBack={() => setStep(3)} onNext={enviar} nextLabel="Enviar reporte" />
+          <NavButtons
+            onBack={() => setStep(3)}
+            onNext={enviar}
+            disabled={enviando}
+            nextLabel={
+              enviando ? "Enviando…" : online ? "Enviar reporte" : "Guardar y enviar con señal"
+            }
+          />
         </section>
       )}
     </div>
