@@ -29,14 +29,15 @@ export async function recalcularBarrio(barrio) {
     _count: { _all: true },
   });
 
-  let cantidadReportes = 0;
+  // reportes_7d es lo que se muestra en el mapa: solo cuenta sospecha_alta y
+  // sospecha_media. no_relevante se guarda en la DB igual, pero no suma acá.
   let altas = 0;
   let medias = 0;
   for (const grupo of conteosPorClasificacion) {
-    cantidadReportes += grupo._count._all;
     if (grupo.clasificacionIa === 'sospecha_alta') altas = grupo._count._all;
     if (grupo.clasificacionIa === 'sospecha_media') medias = grupo._count._all;
   }
+  const cantidadReportes = altas + medias;
 
   let mmLluvia = 0;
   try {

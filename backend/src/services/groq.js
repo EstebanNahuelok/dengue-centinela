@@ -2,9 +2,9 @@ import Groq from 'groq-sdk';
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
-// TODO(Esteban): usar esto en agents/agente1_conversacional.js para reemplazar
-// el heuristico por keywords con una interpretacion real del mensaje libre.
-export async function chatCompletion(messages, model = 'llama-3.1-8b-instant', { temperature = 0.2 } = {}) {
+const MODELO_DEFAULT = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+
+export async function chatCompletion(messages, model = MODELO_DEFAULT, { temperature = 0.2 } = {}) {
   if (!groq) throw new Error('GROQ_API_KEY no configurada');
   const completion = await groq.chat.completions.create({
     messages,
